@@ -69,7 +69,7 @@ void read_score_table(int argc, char **argv) {
 
     if(argc == 2)
     {
-        // TODO: fill the score_table with values from the file in argv[1]
+        // TODO: fill the score_table with values from the file in argv[1]...
     }else{
         // Default option (diagonal = 1, the rest = 0) :
         int *next_entry = score_table;
