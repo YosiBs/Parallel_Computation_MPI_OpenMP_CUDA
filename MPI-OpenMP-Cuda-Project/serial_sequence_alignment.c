@@ -10,6 +10,7 @@
 
 #define NUMBER_OF_LETTERS 26
 
+int lineno = 1;
 
 int *score_table;
 
@@ -18,19 +19,12 @@ void fill_score_mat();
 void init(int argc, char **argv);
 void read_score_table(int argc, char **argv);
 void printGraph();
-
-
-int main(int argc, char **argv)
-{
-
-    
-    printf("HI\n");
-    init(argc, argv);
+int load_score_table_from_text_file( const char* fileName);
+void skip_white_space();
+int read_input_seq();
 
 
 
-    return EXIT_SUCCESS;
-}
 
 /*-----------------------------------------------------------------------
     The input template:
@@ -48,58 +42,183 @@ int main(int argc, char **argv)
                 AAB
                 CBA
 -----------------------------------------------------------------------*/
+
+
+int main(int argc, char **argv)
+{
+
+    init(argc, argv);
+
+    free(score_table);
+    return EXIT_SUCCESS;
+}
+
 void init(int argc, char **argv)
 {
     read_score_table(argc, argv);
-    
+    read_input_seq();
 
 
 }
 
 
-void read_score_table(int argc, char **argv) {
-    /*
-    int c;
-    int w;
-    int count_w = 0; // number of values read in so far
-    */
 
+
+
+int read_input_seq()
+{
+    char input_string[256];  // Adjust the buffer size as needed
+    int input_number;
+    char input_array[100][256];  // Adjust the buffer size and array size as needed
+
+    // Read the input_string
+    if (fgets(input_string, sizeof(input_string), stdin) == NULL) {
+        printf("Failed to read input_string.\n");
+        return 1;
+    }
+
+    // Read the input_number
+    if (fscanf(stdin, "%d", &input_number) != 1) {
+        printf("Failed to read input_number.\n");
+        return 1;
+    }
+
+    // Read the input_array
+    for (int i = 0; i < input_number; i++) {
+        if (fgets(input_array[i], sizeof(input_array[i]), stdin) == NULL) {
+            printf("Failed to read input_array[%d].\n", i);
+            return 1;
+        }
+    }
+
+    // Access the variables as needed
+    printf("Input String: %s", input_string);
+    printf("Input Number: %d\n", input_number);
+    printf("Input Array:\n");
+    for (int i = 0; i < input_number; i++) {
+        printf("%s", input_array[i]);
+    }
+
+    return 0;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void read_score_table(int argc, char **argv) 
+{
     score_table = (int*)calloc(NUMBER_OF_LETTERS * NUMBER_OF_LETTERS , sizeof(int));
     if(score_table == NULL) { perror("malloc"); exit(1); }
-
     if(argc == 2)
-    {
-        // TODO: fill the score_table with values from the file in argv[1]...
+    {   
+        // Read Score table from a text file.
+        char* fileName = argv[1];
+        load_score_table_from_text_file( fileName);
+        
+
     }else{
-        // Default option (diagonal = 1, the rest = 0) :
-        int *next_entry = score_table;
+        // Default option (diagonal = 1, the rest = 0).
         for(int i = 0 ; i < NUMBER_OF_LETTERS ; i++)
-            next_entry[NUMBER_OF_LETTERS*i+i] = 1;
+            score_table[NUMBER_OF_LETTERS*i+i] = 1;
     }
     printGraph();
-    
+}
+
+
+int load_score_table_from_text_file( const char* fileName)
+{
+    FILE* fp;
+    int count_v = 0;
+    int value;
+    fp = fopen(fileName, "r");
+    if (fp == NULL) {
+        perror("Error opening file");
+        exit(1);
+    }
+    for(int i = 0 ; i < NUMBER_OF_LETTERS * NUMBER_OF_LETTERS ; i++)
+    {
+        if(fscanf(fp , "%d", &value) == 1)
+        {
+            count_v++;
+            score_table[i] = value;
+        }else{
+            printf("no more values\n");
+            break;
+        }
+    }
+    if (count_v != NUMBER_OF_LETTERS*NUMBER_OF_LETTERS) 
+    {
+        fprintf(stderr, "%d values appear in the text file (expected %d values, (padding with \"0\"))\n", 
+        count_v, NUMBER_OF_LETTERS*NUMBER_OF_LETTERS);
+    }
+    fclose(fp);
+    return 0;
 }
 
 
 // can be used for debugging
-void printGraph() {
-
-    printf("Score Table:\n");
+void printGraph() 
+{
     for (int i = 0; i < NUMBER_OF_LETTERS; i++) 
     {
-
         for (int j = 0; j < NUMBER_OF_LETTERS; j++)
         {
-            if(i == 0)
-            {
-                printf("%c  ", 'A'+j);
-            }else if(j != 0)
-            {
-                printf("%d  ", score_table[NUMBER_OF_LETTERS*i+j]);
-            }else{
-                printf("%c  ", 'A'+i);
-            }
+            printf("%4d", score_table[NUMBER_OF_LETTERS*i+j]);
         }
         putchar('\n');
     }
+}
+
+    
+void skip_white_space() {
+   int c;
+   while(1) {
+       if ((c = getchar()) == '\n')
+           lineno++;
+       else if (isspace(c))
+           continue;
+       else if (c == EOF)
+           break;
+       else {
+         ungetc(c, stdin);
+         break;
+       }
+   }
 }
