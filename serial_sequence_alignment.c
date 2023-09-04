@@ -7,19 +7,22 @@
 #include <time.h>
 #include <math.h>
 
-#define DEBUG
+//#define DEBUG
 
 #define NUMBER_OF_LETTERS 26
-//Assumption: seq(i) will always be smaller len than seq(1)
+//Assumption: seq(i) will always have smaller len than seq(1)
 #define SEQ_1_MAX_LEN 3000
 #define SEQ_I_MAX_LEN 2000
 
 char* seq1;
+int seq1_len;
+
+int num_of_seqs;
 char **seq_arr;
 
-int lineno = 1;
-int num_of_seqs;
 int *score_table;
+
+int lineno = 1;
 
 //Functions:
 void MS(char* seq, int k);
@@ -35,25 +38,14 @@ void toUpperCase(char *str);
 void find_score_offset_MS(int *seq_score, char* seq_temp);
 int check_score(char* seq, int offset);
 void Work();
+void exit_safely();
 
 int main(int argc, char **argv)
 {
-
     init(argc, argv);
     Work();
 
-
-
-
-
-
-    free(score_table);
-    free(seq1);
-    for(int i = 0 ; i < num_of_seqs ; i++)
-    {
-        free(seq_arr[i]);
-    }
-    free(seq_arr);
+    exit_safely();
     return EXIT_SUCCESS;
 }
 
@@ -61,47 +53,36 @@ void init(int argc, char **argv)
 {
     read_score_table(argc, argv);
     read_input_seq();
-
-
 }
 
 void Work()
 {
     int seq_score[3] = {0};
-
-    //char temp[SEQ_I_MAX_LEN];
-
+    char temp[SEQ_I_MAX_LEN];
     for(int i = 0 ; i < num_of_seqs ; i++)
     {
-        //temp = 
+        strcpy(temp, seq_arr[i]);
         find_score_offset_MS(seq_score, seq_arr[i]);
-
-        //printf("Seq = %s -> ", seq_arr[i]);
+        printf("Seq = %s -> ", temp);
         printf("Highest alignment score = %d, Offset = %d, K = %d \n", seq_score[0], seq_score[1], seq_score[2]);
-
     }
-
 }
-
 
 void find_score_offset_MS(int *seq_score, char* seq_temp)
 {
-    int seq1_len = strlen(seq1);
     int seq_temp_len = strlen(seq_temp);
     int temp_score = 0;
 
-    //MS
-    for(int k = 0 ; k <= seq_temp_len ; k++ )
+    for(int k = seq_temp_len ; k >= 0 ; k-- )
     {
-        printf("@@ 1\n");
-        
         MS(seq_temp, k);
-        //offset
+        
         for(int offset = 0 ; offset <= seq1_len - seq_temp_len ; offset++)
         {
-            printf("@@ 2\n");
-
             temp_score = check_score(seq_temp, offset);
+#ifdef DEBUG
+            printf("~~> score=%d \n", temp_score);
+#endif
             if(temp_score > seq_score[0])
             {
                 seq_score[0] = temp_score; // alignment score
@@ -110,14 +91,10 @@ void find_score_offset_MS(int *seq_score, char* seq_temp)
             }
         }
     }
-
 }
-
 
 void MS(char* seq, int k)
 {
-    printf("@@ 3\n");
-
     if(k == strlen(seq)){
 		return;
 	}else{
@@ -127,23 +104,28 @@ void MS(char* seq, int k)
 
 int check_score(char* seq, int offset)
 {
-    
     int value = 0;
     int seq_len = strlen(seq);
-	for (int i = 0 ; i < seq_len ; i++){
-        printf("@@ 1\n");
-		value += score_table[(seq1[offset+i] -'A')  * (NUMBER_OF_LETTERS*NUMBER_OF_LETTERS) + (seq[i]-'A')];
-	}
+	for (int i = 0 ; i < seq_len ; i++)
+    {
+		value += score_table[(seq1[offset+i] - 'A') * (NUMBER_OF_LETTERS) + (seq[i] - 'A')]; // score_table[i * 26 +j]
+#ifdef DEBUG
+        printf("~~> table slot: %d * %d + %d\n",(seq1[offset+i] - 'A'),NUMBER_OF_LETTERS, (seq[i] - 'A'));
+        printf("~~> value so far = %d\n",value);
+#endif
+    }
     return value;
 }
 
 
-
-
-
-
-
-
+void exit_safely()
+{
+    free(score_table);
+    free(seq1);
+    for(int i = 0 ; i < num_of_seqs ; i++)
+        free(seq_arr[i]);
+    free(seq_arr);
+}
 
 
 
@@ -186,7 +168,8 @@ void toUpperCase(char *str) {
 -----------------------------------------------------------------------*/
 int read_input_seq()
 {
-    char* seq1 = handle_string_from_input();
+    seq1 = handle_string_from_input();
+    seq1_len = strlen(seq1);
 
     // Read the num_of_seqs
     if (fscanf(stdin, "%d", &num_of_seqs) != 1) {
@@ -194,7 +177,6 @@ int read_input_seq()
         return 1;
     }
 #ifdef DEBUG
-    int seq1_len = strlen(seq1);
     printf("~~> Seq1 = %s , len = %d\n", seq1, seq1_len);
     printf("~~> num_of_seq = %d \n", num_of_seqs);
 #endif
@@ -300,11 +282,15 @@ int load_score_table_from_text_file( const char* fileName)
             break;
         }
     }
+
+#ifdef DEBUG
     if (count_v != NUMBER_OF_LETTERS*NUMBER_OF_LETTERS) 
     {
-        fprintf(stderr, "%d values appear in the text file (expected %d values, (padding with \"0\"))\n", 
+        printf("%d values appear in the text file (expected %d values, (padding with \"0\"))\n", 
         count_v, NUMBER_OF_LETTERS*NUMBER_OF_LETTERS);
     }
+#endif
+
     fclose(fp);
     return 0;
 }
