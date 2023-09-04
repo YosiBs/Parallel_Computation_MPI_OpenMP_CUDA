@@ -55,19 +55,44 @@ void init(int argc, char **argv)
     read_input_seq();
 }
 
+
+/*-----------------------------------------------------------------------
+@brief ~~> void Work()
+    The Function will initialize an int array with size 3 to "0".
+    and will run the function "find_score_offset_MS" for each seq.
+    
+
+@return: void
+-----------------------------------------------------------------------*/
 void Work()
 {
-    int seq_score[3] = {0};
+    int seq_score[3] = {0}; // Score , offset and K, will be written to these array
     char temp[SEQ_I_MAX_LEN];
     for(int i = 0 ; i < num_of_seqs ; i++)
     {
+        seq_score[0] = 0;
+        seq_score[1] = 0;
+        seq_score[2] = 0;
         strcpy(temp, seq_arr[i]);
         find_score_offset_MS(seq_score, seq_arr[i]);
-        printf("Seq = %s -> ", temp);
+        printf("%d. Seq = %s -> ", i+1, temp);
         printf("Highest alignment score = %d, Offset = %d, K = %d \n", seq_score[0], seq_score[1], seq_score[2]);
     }
 }
 
+
+/*-----------------------------------------------------------------------
+@brief ~~> void find_score_offset_MS(int *seq_score, char* seq_temp)
+    The Function will find the best score, offset, k.
+    the answer will be applied to seq_score array.
+        seq_score[0] = Best Score value.
+        seq_score[1] = Best Offset value.
+        seq_score[2] = Best k value.
+
+@param param1 -- int *seq_score: an array of 3 elements. 
+@param param1 -- char* seq_temp : the current seq to work on
+@return: void
+-----------------------------------------------------------------------*/
 void find_score_offset_MS(int *seq_score, char* seq_temp)
 {
     int seq_temp_len = strlen(seq_temp);
@@ -92,7 +117,14 @@ void find_score_offset_MS(int *seq_score, char* seq_temp)
         }
     }
 }
+/*-----------------------------------------------------------------------
+@brief ~~> void MS(char* seq, int k)
+    The Function will change the current seq with a given K.
 
+@param param1 -- char* seq : the current seq to work on. 
+@param param1 -- int k : the current k.
+@return: void
+-----------------------------------------------------------------------*/
 void MS(char* seq, int k)
 {
     if(k == strlen(seq)){
@@ -102,6 +134,14 @@ void MS(char* seq, int k)
         }
 }
 
+/*-----------------------------------------------------------------------
+@brief ~~> int check_score(char* seq, int offset)
+    The Function will calculate the score for a specific K and Offset.
+
+@param param1 -- char* seq : the current seq to work on. 
+@param param1 -- int offset : the current offset. 
+@return: int value : the best score for the current seq.
+-----------------------------------------------------------------------*/
 int check_score(char* seq, int offset)
 {
     int value = 0;
@@ -117,7 +157,12 @@ int check_score(char* seq, int offset)
     return value;
 }
 
+/*-----------------------------------------------------------------------
+@brief  ~~> void exit_safely()
+    Function to free all the memory allocated in the program.
 
+@return: void
+-----------------------------------------------------------------------*/
 void exit_safely()
 {
     free(score_table);
@@ -130,12 +175,14 @@ void exit_safely()
 
 
 /*-----------------------------------------------------------------------
-@brief  Function to make a string letters all upper case.
+@brief  ~~> void toUpperCase(char *str)
+    Function to make a string letters all upper case.
 
 @param param1 -- char* str ~> the string to be upper cased
 @return: void
 -----------------------------------------------------------------------*/
-void toUpperCase(char *str) {
+void toUpperCase(char *str) 
+{
     if (str == NULL)
         return;
 
@@ -148,21 +195,22 @@ void toUpperCase(char *str) {
 
 
 /*-----------------------------------------------------------------------
-@brief  This function reads the input from "stdin" and initializing
-        the variables needed.
-            The input template:
-                1.  Seq1 (String): (The main series).
-                    its the series that all the other serieses will be compared to.
-                    Assumptions : Seq1 maximum lenth is 3000.
-                2.  number_of_sequences (int) : this will tell how many Strings 
-                    there is to read (Seq(2) , Seq(3) ... Seq(n)).
-                3.  Seq(1..n) : all the serieses line by line.
-                (i.e) : 
-                        ABBDAB
-                        3
-                        ADC
-                        BDE
-                        AAB
+@brief  ~~> int read_input_seq()
+    This function reads the input from "stdin" and initializing
+    the variables needed.
+        The input template:
+            1.  Seq1 (String): (The main series).
+                its the series that all the other serieses will be compared to.
+                Assumptions : Seq1 maximum lenth is 3000.
+            2.  number_of_sequences (int) : this will tell how many Strings 
+                there is to read (Seq(2) , Seq(3) ... Seq(n)).
+            3.  Seq(1..n) : all the serieses line by line.
+            (i.e) : 
+                    ABBDAB
+                    3
+                    ADC
+                    BDE
+                    AAB
 
 @return : int (Success\Fail)
 -----------------------------------------------------------------------*/
@@ -199,9 +247,10 @@ int read_input_seq()
 
 
 /*-----------------------------------------------------------------------
-@brief  Function to Handle the string input:
-        this function allocates memory for a 3000 long string and
-        after that cut's down the unused memory.
+@brief  ~~> char* handle_string_from_input()
+    Function to Handle the string input:
+    this function allocates memory for a 3000 long string and
+    after that cut's down the unused memory.
 
 @return: char*
 -----------------------------------------------------------------------*/
@@ -230,13 +279,14 @@ char* handle_string_from_input()
 
 
 /*-----------------------------------------------------------------------
-@brief  Function to initialize the score table.
-        the function checks if there is an argument passed to the program
-        and read the values from there to the score table.
-        -if there is no argument passed to it, the function will initialize
-        the score table with "0" exept the diagonal line (will be "1").
-        -if there is not enogh values in the txt file then the function
-        will padd the score table with "0".
+@brief  ~~>void read_score_table(int argc, char **argv) 
+    Function to initialize the score table.
+    the function checks if there is an argument passed to the program
+    and read the values from there to the score table.
+    -if there is no argument passed to it, the function will initialize
+    the score table with "0" exept the diagonal line (will be "1").
+    -if there is not enogh values in the txt file then the function
+    will padd the score table with "0".
 
 @param param1 -- int argc ~> how many arguments passed at execution
 @param param2 -- char** argv ~> an array of strings of the arguments
@@ -297,7 +347,8 @@ int load_score_table_from_text_file( const char* fileName)
 
 
 /*-----------------------------------------------------------------------
-@brief  Function to Print the score table.
+@brief  ~~> void printGraph() 
+    Function to Print the score table.
 
 @ return: void
 -----------------------------------------------------------------------*/
