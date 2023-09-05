@@ -29,7 +29,7 @@ void MS(char* seq, int k);
 void fill_score_mat();
 void init(int argc, char **argv);
 void read_score_table(int argc, char **argv);
-void printGraph();
+void print_score_table();
 int load_score_table_from_text_file( const char* fileName);
 void skip_white_space();
 int read_input_seq();
@@ -308,7 +308,7 @@ void read_score_table(int argc, char **argv)
         for(int i = 0 ; i < NUMBER_OF_LETTERS ; i++)
             score_table[NUMBER_OF_LETTERS*i+i] = 1;
     }
-    printGraph();
+    print_score_table();
 }
 
 int load_score_table_from_text_file( const char* fileName)
@@ -347,12 +347,12 @@ int load_score_table_from_text_file( const char* fileName)
 
 
 /*-----------------------------------------------------------------------
-@brief  ~~> void printGraph() 
+@brief  ~~> void print_score_table() 
     Function to Print the score table.
 
 @ return: void
 -----------------------------------------------------------------------*/
-void printGraph() 
+void print_score_table() 
 {
     for (int i = 0; i < NUMBER_OF_LETTERS; i++) 
     {
