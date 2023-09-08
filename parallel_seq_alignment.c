@@ -13,7 +13,7 @@
 #define TABLE_SIZE 26*26
 //Assumption: seq(i) will always have smaller len than seq(1)
 #define SEQ_1_MAX_LEN 3000
-#define SEQ_I_MAX_LEN 2000
+#define SEQ_2_MAX_LEN 2000
 #define MASTER 0
 #define INITSCORE -1000
 enum tags { STOP, WORK, INIT_PACK} tag;
@@ -23,17 +23,24 @@ typedef struct {
     int offset;
     int k;
     int seq_len;
-    char* seq;
+    char seq[SEQ_2_MAX_LEN];
 } Seq_Info;
 
+typedef struct {
+    int num_of_seqs;
+    int seq1_len;
+    int score_table[NUMBER_OF_LETTERS][NUMBER_OF_LETTERS];
+    char seq1[SEQ_1_MAX_LEN];
+} init_variables;
+
+
 char* seq1;
-int seq1_len;
-int *score_table;
-int num_of_seqs;
+
+init_variables init_pack;
 Seq_Info* seq_arr;
 int lineno = 1;
-
-
+int start_end[2];
+int chunk_size;
 
 
 
@@ -54,9 +61,8 @@ void init(int argc, char **argv,int myRank, int nprocs);
 //void exit_safely();
 void masterProcess(int nprocs);
 void workerProcess(int nprocs, int myRank, int reminder);
-void send_pack_master_to_worker(int nprocs);
-void recv_pack_worker_from_master();
-
+void get_MPI_init_Datatype(MPI_Datatype* custom_type);
+void get_MPI_Seq_Info_Datatype(MPI_Datatype* custom_type);
 
 
 int main(int argc, char **argv)
@@ -108,99 +114,165 @@ void workerProcess(int nprocs, int myRank, int reminder)
 
 void init(int argc, char **argv,int myRank, int nprocs)
 {
-    score_table = (int*)calloc(NUMBER_OF_LETTERS * NUMBER_OF_LETTERS , sizeof(int));
-    if(score_table == NULL) { perror("malloc"); exit(1); }
+
+    MPI_Datatype mpi_init_datatype;
+    MPI_Datatype mpi_seq_info_datatype;
+    get_MPI_init_Datatype(&mpi_init_datatype);
+    get_MPI_Seq_Info_Datatype(&mpi_seq_info_datatype);
 
     if(myRank == MASTER)
     {
         read_score_table(argc, argv);
         read_input_seq();
         
-        send_pack_master_to_worker(nprocs); //WORKING ON
-
-    }else{
-        
-        recv_pack_worker_from_master(); //WORKING ON
-        
-        printf("~~>[%d] seq1 =%s\n", myRank, seq1);
-
     }
-
-    
-
-
-}
-// score table
-// seq1_len
-// seq1
-// num_of_seqs
-// seq_arr
-
-
-void send_pack_master_to_worker(int nprocs)
-{
-    int pack_size;
-    int position = 0;
-
-    // Calculate the pack size
-    MPI_Pack_size(1, MPI_INT, MPI_COMM_WORLD, &pack_size);
-    // Allocate a buffer for packing
-    char* send_buffer = (char*)malloc(pack_size);
-
-    // Pack the data into the buffer
-    MPI_Pack(score_table, TABLE_SIZE, MPI_INT, send_buffer, pack_size, &position, MPI_COMM_WORLD);
-    MPI_Pack(&seq1_len, 1, MPI_INT, send_buffer, pack_size, &position, MPI_COMM_WORLD);
-    MPI_Pack(&num_of_seqs, 1, MPI_INT, send_buffer, pack_size, &position, MPI_COMM_WORLD);
-    MPI_Pack(seq1, strlen(seq1) + 1, MPI_CHAR, send_buffer, pack_size, &position, MPI_COMM_WORLD);
-    // ?? add seq_arr
-
-    // Send the packed data to workers
-    for(int worker = 1 ; worker <= nprocs ; worker++)
-    {
-        MPI_Send(send_buffer, position, MPI_PACKED, worker, INIT_PACK, MPI_COMM_WORLD);
-    }
-    free(send_buffer);
-}
-
-
-
-
-void recv_pack_worker_from_master()
-{
-
-    MPI_Recv(score_table, TABLE_SIZE, MPI_INT, MASTER, INIT_PACK, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-    MPI_Recv(&seq1_len, 1, MPI_INT, MASTER, INIT_PACK, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-    MPI_Recv(&num_of_seqs, 1, MPI_INT, MASTER, INIT_PACK, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-    seq1 = (char*)malloc((seq1_len+1) * sizeof(char));
-    if (seq1 == NULL) {
-        fprintf(stderr, "Memory allocation failed.\n");
-        exit(1);
-    }
-    MPI_Recv(seq1, seq1_len + 1, MPI_CHAR, MASTER, INIT_PACK, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-
-    int recv_size;
-    MPI_Status status;
-    MPI_Probe(MASTER, INIT_PACK, MPI_COMM_WORLD, &status);
-    MPI_Get_count(&status, MPI_PACKED, &recv_size);
-
-    char* recv_buffer = (char*)malloc(recv_size);
-    MPI_Recv(recv_buffer, recv_size, MPI_PACKED, MASTER, INIT_PACK, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-
-    int position = 0;
-    MPI_Unpack(recv_buffer, recv_size, &position, score_table, TABLE_SIZE, MPI_INT, MPI_COMM_WORLD);
-    MPI_Unpack(recv_buffer, recv_size, &position, &seq1_len, 1, MPI_INT, MPI_COMM_WORLD);
-    MPI_Unpack(recv_buffer, recv_size, &position, &num_of_seqs, 1, MPI_INT, MPI_COMM_WORLD);
-    MPI_Unpack(recv_buffer, recv_size, &position, seq1, seq1_len, MPI_CHAR, MPI_COMM_WORLD);
+    MPI_Bcast(&init_pack, 1, mpi_init_datatype, MASTER, MPI_COMM_WORLD);
 
 #ifdef DEBUG
-    print_score_table();
-    printf("seq1 len = %d, num_of_seqs = %d, seq1 = %s\n", seq1_len, num_of_seqs, seq1);
+    //printf("~~>[%d] num of seqs = %d, seq1 len= %d seq1 = %s\n", myRank, init_pack.num_of_seqs, init_pack.seq1_len, init_pack.seq1);
+    //print_score_table();
+#endif
+    
+    chunk_size = 0;
+    int reminder = init_pack.num_of_seqs%(nprocs-1);
+    if(myRank == MASTER)
+    {
+        chunk_size = init_pack.num_of_seqs;
+        start_end[0] = 0;
+        start_end[1] = init_pack.num_of_seqs - 1;
+
+        int elements_per_proc[nprocs-1];
+        int displacements[nprocs-1];
+
+        for(int i = 0 ; i < nprocs - 1 ;i++ )
+        {
+            elements_per_proc[i] = (init_pack.num_of_seqs/(nprocs-1)) + ((myRank == nprocs - 1) ? reminder : 0);
+            displacements[i] = (i * (init_pack.num_of_seqs/(nprocs-1)) ) * sizeof(Seq_Info);
+#ifdef DEBUG
+            printf("~~%d. num_elements=%d, displacement=%d\n", i+1, elements_per_proc[i],displacements[i]);
+#endif
+        }
+        MPI_Scatterv(seq_arr, elements_per_proc, displacements, mpi_seq_info_datatype, MPI_IN_PLACE, 0, mpi_seq_info_datatype, MASTER, MPI_COMM_WORLD);
+#ifdef DEBUG
+        printf("~~%d. AFTER SCATTER\n", myRank);
 #endif
 
 
-    free(recv_buffer);
+
+
+
+
+
+
+
+
+
+    }else{
+        chunk_size = (init_pack.num_of_seqs/(nprocs-1)) + ((myRank == nprocs - 1) ? reminder : 0);
+        start_end[0] = (myRank - 1) * (init_pack.num_of_seqs / (nprocs - 1)) + 1;
+        start_end[1] = start_end[0] + chunk_size - 1; 
+
+        seq_arr = (Seq_Info*)malloc(chunk_size * sizeof(Seq_Info));
+        if (seq_arr == NULL) {
+        fprintf(stderr, "Memory allocation failed.\n");
+        exit(1);
+        }
+        printf("~~%d. BEFORE SCATTER\n", myRank);
+        MPI_Scatterv(NULL, NULL, NULL, mpi_seq_info_datatype, seq_arr, chunk_size * sizeof(Seq_Info), mpi_seq_info_datatype, MASTER, MPI_COMM_WORLD);
+
+
+        printf("~~%d. AFTER SCATTER\n", myRank);
+
+
+#ifdef DEBUG
+        for(int i = 0 ; i < chunk_size ; i++)
+            printf("~~>[%d] seq[%d] = %s\n", myRank, start_end[i] , seq_arr[i].seq);
+#endif
+    }
+
+
+
+
 
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void get_MPI_init_Datatype(MPI_Datatype* custom_type)
+{
+    int block_lengths[4] = {1, 1, TABLE_SIZE, SEQ_1_MAX_LEN};
+    MPI_Aint displacements[4];
+    MPI_Datatype types[4] = {MPI_INT, MPI_INT, MPI_INT, MPI_CHAR};
+
+    displacements[0] = 0;
+    displacements[1] = sizeof(int); 
+    displacements[2] = 2 * sizeof(int);
+    displacements[3] = (2 + TABLE_SIZE) * sizeof(int);
+    MPI_Type_create_struct(4, block_lengths, displacements, types, custom_type);
+    MPI_Type_commit(custom_type);
+}
+
+
+void get_MPI_Seq_Info_Datatype(MPI_Datatype* custom_type)
+{
+    int blocklengths[5] = {1, 1, 1, 1, SEQ_2_MAX_LEN};
+    MPI_Aint displacements[5];
+    MPI_Datatype types[5] = {MPI_INT, MPI_INT, MPI_INT, MPI_INT, MPI_CHAR};
+
+    for(int i = 0 ; i < 5 ; i++)
+        displacements[i] = i * sizeof(int);
+
+    MPI_Type_create_struct(5, blocklengths, displacements, types, custom_type);
+    MPI_Type_commit(custom_type);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -252,7 +324,7 @@ void recv_pack_worker_from_master()
 void Work()
 {
     int seq_score[3] = {0}; // Score , offset and K, will be written to these array
-    char temp[SEQ_I_MAX_LEN];
+    char temp[SEQ_2_MAX_LEN];
     for(int i = 0 ; i < num_of_seqs ; i++)
     {
         strcpy(temp, seq_arr[i]);
@@ -287,7 +359,7 @@ void find_score_offset_MS(int *seq_score, char* seq_temp)
     {
         MS(seq_temp, k);
         
-        for(int offset = 0 ; offset <= seq1_len - seq_temp_len ; offset++)
+        for(int offset = 0 ; offset <= init_pack.seq1_len - seq_temp_len ; offset++)
         {
             temp_score = check_score(seq_temp, offset);
 #ifdef DEBUG
@@ -333,7 +405,7 @@ int check_score(char* seq, int offset)
     int seq_len = strlen(seq);
 	for (int i = 0 ; i < seq_len ; i++)
     {
-		value += score_table[(seq1[offset+i] - 'A') * (NUMBER_OF_LETTERS) + (seq[i] - 'A')]; // score_table[i * 26 +j]
+		value += init_pack.score_table[(init_pack.seq1[offset+i] - 'A')][(seq[i] - 'A')];
 #ifdef DEBUG
         //printf("~~> table slot: %d * %d + %d\n",(seq1[offset+i] - 'A'),NUMBER_OF_LETTERS, (seq[i] - 'A'));
         printf("~~> value so far = %d\n",value);
@@ -404,36 +476,43 @@ void toUpperCase(char *str)
 int read_input_seq()
 {
     seq1 = handle_string_from_input();
-    seq1_len = strlen(seq1);
-
-    // Read the num_of_seqs
-    if (fscanf(stdin, "%d", &num_of_seqs) != 1) {
+    init_pack.seq1_len = strlen(seq1);
+    strcpy(init_pack.seq1, seq1);
+    init_pack.seq1[init_pack.seq1_len] = '\0';
+    
+    // Read the num_of_seqs value
+    if (fscanf(stdin, "%d", &init_pack.num_of_seqs) != 1) {
         printf("Failed to read input_number.\n");
         return 1;
     }
 #ifdef DEBUG
-    printf("~~> Seq1 = %s , len = %d\n", seq1, seq1_len);
-    printf("~~> num_of_seq = %d \n", num_of_seqs);
+    printf("~~> Seq1 = %s , len = %d\n", init_pack.seq1, init_pack.seq1_len);
+    printf("~~> num_of_seq = %d \n", init_pack.num_of_seqs);
 #endif
     fgetc(stdin); // (read the "\n" that come after the number)
-    seq_arr = (Seq_Info*)malloc(num_of_seqs * sizeof(Seq_Info));
-
+    seq_arr = (Seq_Info*)malloc(init_pack.num_of_seqs * sizeof(Seq_Info));
+    if (seq_arr == NULL) {
+    fprintf(stderr, "Memory allocation failed.\n");
+    exit(1);
+    }
     // Read the seq_array
-    for (int i = 0; i < num_of_seqs; i++) 
+    for (int i = 0; i < init_pack.num_of_seqs; i++) 
     {
-        seq_arr[i].seq = handle_string_from_input();
+        char* temp = handle_string_from_input();
+        seq_arr[i].seq_len = strlen(seq1);
+        strcpy(seq_arr[i].seq, temp);
+        seq_arr[i].seq[init_pack.seq1_len] = '\0';
         seq_arr[i].seq_len = strlen(seq_arr[i].seq);
         seq_arr[i].offset = 0;
         seq_arr[i].k = 0;
         seq_arr[i].score = INITSCORE;
-
     }
+
 #ifdef DEBUG
-/*
-    for (int i = 0; i < num_of_seqs; i++) {
+    //Print all the seqs
+    for (int i = 0; i < init_pack.num_of_seqs; i++) {
         printf("~~> %s \n", seq_arr[i].seq);
     }
-*/
 #endif
     return 0;
 }
@@ -498,7 +577,7 @@ void read_score_table(int argc, char **argv)
     }else{
         // Default option (diagonal = 1, the rest = 0).
         for(int i = 0 ; i < NUMBER_OF_LETTERS ; i++)
-            score_table[NUMBER_OF_LETTERS*i+i] = 1;
+            init_pack.score_table[i][i] = 1;
     }
     print_score_table();
 }
@@ -513,15 +592,19 @@ int load_score_table_from_text_file( const char* fileName)
         perror("Error opening file");
         exit(1);
     }
-    for(int i = 0 ; i < NUMBER_OF_LETTERS * NUMBER_OF_LETTERS ; i++)
+    for(int i = 0 ; i < NUMBER_OF_LETTERS ; i++)
     {
-        if(fscanf(fp , "%d", &value) == 1)
+        for(int j = 0; j < NUMBER_OF_LETTERS ; j++ )
         {
-            count_v++;
-            score_table[i] = value;
-        }else{
-            printf("no more values\n");
-            break;
+
+            if(fscanf(fp , "%d", &value) == 1)
+            {
+                count_v++;
+                init_pack.score_table[i][j] = value;
+            }else{
+                printf("no more values\n");
+                break;
+            }
         }
     }
 
@@ -550,7 +633,7 @@ void print_score_table()
     {
         for (int j = 0; j < NUMBER_OF_LETTERS; j++)
         {
-            printf("%4d", score_table[NUMBER_OF_LETTERS*i+j]);
+            printf("%4d", init_pack.score_table[i][j]);
         }
         putchar('\n');
     }
